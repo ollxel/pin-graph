@@ -16,7 +16,7 @@
 
 1. Клонируйте репозиторий:
 ```bash
-   git clone [https://github.com/your-username/pingraph.git](https://github.com/your-username/pingraph.git)
+   git clone [https://github.com/ollxel/pin-graph.git](https://github.com/your-username/pingraph.git)
    cd pingraph
 ```
 2. Запустите скрипт:
