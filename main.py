@@ -15,6 +15,7 @@ import sqlite3
 import shutil
 import tempfile
 import secrets
+import browser_cookie3
 
 PORT = 8080
 CONFIG_FILE = os.path.expanduser("~/.pingraph_keys.json")
@@ -117,46 +118,13 @@ def decode_vibe_token(token_str, pub_key_str=None):
     return ids
 
 def auto_extract_local_browser_cookies():
-    search_patterns = [
-        os.path.expanduser("~/Library/Application Support/zen/Profiles/*/cookies.sqlite"),
-        os.path.expanduser("~/Library/Application Support/Zen/Profiles/*/cookies.sqlite"),
-        os.path.expanduser("~/Library/Application Support/Zen Browser/Profiles/*/cookies.sqlite"),
-        os.path.expanduser("~/Library/Application Support/Firefox/Profiles/*/cookies.sqlite"),
-        os.path.expanduser("~/Library/Application Support/*/Profiles/*/cookies.sqlite"),
-        os.path.expanduser("~/.zen/*/cookies.sqlite"),
-        os.path.expanduser("~/.mozilla/firefox/*/cookies.sqlite"),
-    ]
-
-    found_dbs = []
-    for pat in search_patterns:
-        for p in glob.glob(pat, recursive=True):
-            if p.endswith("cookies.sqlite") and p not in found_dbs:
-                found_dbs.append(p)
-
-    found_dbs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-
-    for db_path in found_dbs:
-        tmp_dir = tempfile.mkdtemp()
-        try:
-            tmp_db = os.path.join(tmp_dir, "cookies.sqlite")
-            shutil.copy2(db_path, tmp_db)
-            for ext in ("-wal", "-shm"):
-                if os.path.exists(db_path + ext):
-                    shutil.copy2(db_path + ext, tmp_db + ext)
-
-            conn = sqlite3.connect(tmp_db)
-            cur = conn.cursor()
-            cur.execute("SELECT name, value FROM moz_cookies WHERE host LIKE '%pinterest.%'")
-            rows = cur.fetchall()
-            conn.close()
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-
-            cookie_dict = {k: v for k, v in rows}
-            if "_pinterest_sess" in cookie_dict:
-                return "; ".join(f"{k}={v}" for k, v in cookie_dict.items())
-        except Exception:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-
+    try:
+        cj = browser_cookie3.load(domain_name="pinterest.com")
+        cookies = {c.name: c.value for c in cj}
+        if "_pinterest_sess" in cookies:
+            return "; ".join(f"{k}={v}" for k, v in cookies.items())
+    except Exception as e:
+        print(f"Browser cookie extraction error: {e}")
     return ""
 
 def is_organic_pin_id(pin_id_str):
