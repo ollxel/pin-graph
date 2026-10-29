@@ -30,9 +30,9 @@ opener = urllib.request.build_opener(
 )
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
 }
 
 SESSION_STATE = {
@@ -765,8 +765,8 @@ if __name__ == '__main__':
         SESSION_STATE["cookie"] = extracted
         save_crypto_keys()
 
-    default_seeds = [296182112971525417, 455567318580580280, 694680311299092577, 119345458856271962, 155866837090840952]
-    default_token = encode_vibe_token(default_seeds, SESSION_STATE["public_key"])
+    default_seeds = []
+    default_token = ""
     HTML_PAGE = HTML_PAGE.replace("__DEFAULT_HASH__", default_token)
 
     init_pinterest_session()
