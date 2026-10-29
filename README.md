@@ -16,7 +16,7 @@ Minimalist local client and neural graph reconstructor for Pinterest recommendat
 
 1. Clone the repository:
 ```bash
-   git clone [https://github.com/ollxel/pin-graph.git](https://github.com/your-username/pingraph.git)
+   git clone [https://github.com/ollxel/pin-graph.git](https://github.com/ollxel/pin-graph.git)
    cd pingraph
 ```
 2. Run the script:
