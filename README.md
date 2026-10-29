@@ -21,7 +21,7 @@ Minimalist local client and neural graph reconstructor for Pinterest recommendat
 ```
 2. Run the script:
 ```Bash
-    python3 pinterest_vibe.py
+    python3 main.py
 ```
 3. Open your browser at:
 `http://localhost:8080`
