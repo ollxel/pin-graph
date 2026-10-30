@@ -16,6 +16,8 @@ import shutil
 import tempfile
 import secrets
 import browser_cookie3
+import socketserver
+import sys
 
 PORT = 8080
 CONFIG_FILE = os.path.expanduser("~/.pingraph_keys.json")
@@ -117,14 +119,81 @@ def decode_vibe_token(token_str, pub_key_str=None):
             ids.append(str(val))
     return ids
 
+import socketserver
+
 def auto_extract_local_browser_cookies():
+    appdata = os.environ.get("APPDATA", "")
+    localappdata = os.environ.get("LOCALAPPDATA", "")
+
+    search_patterns = [
+        os.path.join(appdata, "Mozilla", "Firefox", "Profiles", "*", "cookies.sqlite"),
+        os.path.join(appdata, "zen", "Profiles", "*", "cookies.sqlite"),
+        os.path.join(appdata, "Zen Browser", "Profiles", "*", "cookies.sqlite"),
+        os.path.join(appdata, "*", "Profiles", "*", "cookies.sqlite"),
+        # macOS
+        os.path.expanduser("~/Library/Application Support/zen/Profiles/*/cookies.sqlite"),
+        os.path.expanduser("~/Library/Application Support/Zen/Profiles/*/cookies.sqlite"),
+        os.path.expanduser("~/Library/Application Support/Zen Browser/Profiles/*/cookies.sqlite"),
+        os.path.expanduser("~/Library/Application Support/Firefox/Profiles/*/cookies.sqlite"),
+        os.path.expanduser("~/Library/Application Support/*/Profiles/*/cookies.sqlite"),
+        # Linux
+        os.path.expanduser("~/.zen/*/cookies.sqlite"),
+        os.path.expanduser("~/.mozilla/firefox/*/cookies.sqlite"),
+    ]
+
+    found_dbs = []
+    for pat in search_patterns:
+        if not pat or pat.startswith("*"):
+            continue
+        for p in glob.glob(pat):
+            if p.endswith("cookies.sqlite") and os.path.exists(p) and p not in found_dbs:
+                found_dbs.append(p)
+
+    found_dbs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+
+    for db_path in found_dbs:
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            tmp_db = os.path.join(tmp_dir, "cookies.sqlite")
+            shutil.copy2(db_path, tmp_db)
+            for ext in ("-wal", "-shm"):
+                if os.path.exists(db_path + ext):
+                    shutil.copy2(db_path + ext, tmp_db + ext)
+
+            conn = sqlite3.connect(tmp_db)
+            cur = conn.cursor()
+            cur.execute("SELECT name, value FROM moz_cookies WHERE host LIKE '%pinterest.%'")
+            rows = cur.fetchall()
+            conn.close()
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+            cookie_dict = {k: v for k, v in rows}
+            if "_pinterest_sess" in cookie_dict:
+                return "; ".join(f"{k}={v}" for k, v in cookie_dict.items())
+        except Exception:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
     try:
-        cj = browser_cookie3.load(domain_name="pinterest.com")
-        cookies = {c.name: c.value for c in cj}
-        if "_pinterest_sess" in cookies:
-            return "; ".join(f"{k}={v}" for k, v in cookies.items())
-    except Exception as e:
-        print(f"Browser cookie extraction error: {e}")
+        import browser_cookie3
+        browsers = [
+            browser_cookie3.firefox,
+            browser_cookie3.chrome,
+            browser_cookie3.edge,
+            browser_cookie3.brave,
+            browser_cookie3.opera,
+            browser_cookie3.chromium,
+        ]
+        for loader in browsers:
+            try:
+                cj = loader(domain_name="pinterest.com")
+                cookies = {c.name: c.value for c in cj}
+                if "_pinterest_sess" in cookies:
+                    return "; ".join(f"{k}={v}" for k, v in cookies.items())
+            except Exception:
+                continue
+    except Exception:
+        pass
+
     return ""
 
 def is_organic_pin_id(pin_id_str):
@@ -726,6 +795,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"pins": pins}).encode('utf-8'))
 
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        _, exc, _ = sys.exc_info()
+        if isinstance(exc, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+            return
+        super().handle_error(request, client_address)
+
+
 if __name__ == '__main__':
     init_crypto_keys()
     extracted = auto_extract_local_browser_cookies()
@@ -733,12 +812,11 @@ if __name__ == '__main__':
         SESSION_STATE["cookie"] = extracted
         save_crypto_keys()
 
-    default_seeds = []
     default_token = ""
     HTML_PAGE = HTML_PAGE.replace("__DEFAULT_HASH__", default_token)
 
     init_pinterest_session()
     print(f"Public Key: {SESSION_STATE['public_key']}")
-    print(f"Vibe Hash: {default_token}")
+    print(f"Session Status: {'Active' if SESSION_STATE['cookie'] else 'Guest Mode'}")
     print(f"Server started at http://localhost:{PORT}")
-    http.server.HTTPServer(('127.0.0.1', PORT), Handler).serve_forever()
+    ThreadedHTTPServer(('127.0.0.1', PORT), Handler).serve_forever()
