@@ -16,7 +16,7 @@ Minimalist local client and neural graph reconstructor for Pinterest recommendat
 
 1. Clone the repository and install library:
 ```bash
-   git clone [https://github.com/ollxel/pin-graph.git](https://github.com/ollxel/pin-graph.git)
+   git clone https://github.com/ollxel/pin-graph.git
    cd pingraph
    pip install browser_cookie3
 ```
