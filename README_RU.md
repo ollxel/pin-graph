@@ -17,7 +17,7 @@
 1. Клонируйте репозиторий и скачайте библиотеку:
 ```bash
    git clone https://github.com/ollxel/pin-graph.git
-   cd pingraph
+   cd pin-graph
    pip install browser_cookie3
 ```
 2. Запустите скрипт:
